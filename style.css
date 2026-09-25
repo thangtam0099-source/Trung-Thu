@@ -769,3 +769,55 @@ select option {
     scroll-behavior: auto !important;
   }
 }
+/* =========================
+   FIX CARD DISPLAY
+========================= */
+
+.card-page {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.card-stage {
+  width: 100%;
+  max-width: 1200px;
+  min-height: 100vh;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-stage img {
+  max-width: 100%;
+}
+
+.card-photo {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.card-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+.card-content {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.card-content h1,
+.card-content h2,
+.card-content p {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
