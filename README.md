@@ -187,3 +187,11 @@ Tạo QR
 
 Trang `/` vẫn là trang tạo thiệp và tạo QR như trước.
 
+
+
+## v5 safe performance patch
+
+This version keeps the v3 data/rendering pipeline intact so existing Supabase cards
+continue to show their photos and messages. Performance changes are limited to
+requestAnimationFrame transform coalescing, compositor hints, and fewer decorative
+particles. Photos and greeting text are never hidden or paused.
