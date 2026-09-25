@@ -469,7 +469,6 @@ function showError(message) {
         <div style="font-size:52px">💌</div>
         <h1>Không tìm thấy thiệp</h1>
         <p>${escapeHtml(message)}</p>
-        <button onclick="location.href='/'">＋ Tạo thiệp mới</button>
       </section>
     </main>
   `;
@@ -560,17 +559,17 @@ function placePhotos(stage, urls, random, motion) {
     img.alt = "Ảnh kỷ niệm";
     img.loading = "eager";
 
-    const width = 12 + random() * 18;
-    const left = 3 + random() * (94 - width);
-    const top = 12 + random() * 75;
+    // Kích thước theo chính mặt thiệp, không phụ thuộc viewport.
+    const width = 15 + random() * 14;
+    const left = 4 + random() * (92 - width);
+    const top = 8 + random() * 78;
 
-    img.style.width = `${width}vw`;
-    img.style.height = `${Math.max(12, width * .78)}vw`;
-    img.style.maxHeight = "28vh";
+    img.style.width = `${width}%`;
     img.style.left = `${left}%`;
     img.style.top = `${top}%`;
-    img.style.setProperty("--rot", `${random()*10 - 5}deg`);
-    img.style.setProperty("--pd", `${6 + random()*5}s`);
+    img.style.aspectRatio = "1.28 / 1";
+    img.style.setProperty("--rot", `${random() * 10 - 5}deg`);
+    img.style.setProperty("--pd", `${6 + random() * 5}s`);
     img.style.animationPlayState = motion ? "running" : "paused";
 
     stage.appendChild(img);
@@ -583,49 +582,66 @@ function renderCard(card) {
   const random = seededRandom(card.id);
 
   app.innerHTML = `
-    <main class="card-page">
-      <div class="card-stage theme-${escapeHtml(card.theme || "pink")}" style="--theme:${color}; --theme-soft:${hexToRgba(color, .9)}">
+    <main class="card-page card-view-only">
+      <div class="card-space theme-${escapeHtml(card.theme || "pink")}" style="--theme:${color}; --theme-soft:${hexToRgba(color, .9)}">
         <div class="space-bg"></div>
+        <div class="ambient-glow"></div>
         <div class="moon"></div>
+        <div class="stars-layer" id="starsLayer"></div>
+        <div class="lanterns-layer" id="lanternsLayer"></div>
 
-        <div class="card-toolbar">
-          <button class="tool-btn" id="backEdit">← Tạo mới</button>
-          <button class="tool-btn" id="musicButton">🔇 Nhạc</button>
-          <button class="tool-btn" id="qrButton">▦ QR</button>
+        <div class="card-view-hint" id="cardViewHint">
+          <span class="hint-icon">↔</span>
+          <span>Kéo hoặc vuốt để xoay 360°</span>
         </div>
 
-        <div id="visualLayer"></div>
+        <div class="card-viewport" id="cardViewport" aria-label="Thiệp Trung Thu 3D, kéo để xoay">
+          <div class="card-3d" id="card3d" tabindex="0">
+            <section class="card-face card-front">
+              <div class="card-face-glow"></div>
+              <div class="card-rim"></div>
+              <div class="card-front-content" id="visualLayer"></div>
+            </section>
 
-        <div class="card-footer">
-          <button class="tool-btn" id="shareButton">📤 Chia sẻ</button>
+            <section class="card-face card-back">
+              <div class="back-decoration back-moon">🌕</div>
+              <div class="back-decoration back-bunny">🐇</div>
+              <div class="back-stars">✦　✧　✦</div>
+              <div class="back-title">Trung Thu</div>
+              <div class="back-message">Một mùa trăng thật dịu dàng<br>và nhiều kỷ niệm đẹp ✨</div>
+              <div class="back-sender">${escapeHtml(card.sender_name ? `— ${card.sender_name} —` : "Chúc bạn một mùa Trung Thu thật vui vẻ")}</div>
+            </section>
+          </div>
         </div>
-
-        <audio id="bgMusic" loop preload="none" src="${escapeHtml(card.music_url || "")}"></audio>
       </div>
     </main>
   `;
 
-  const stage = document.querySelector(".card-stage");
+  const space = document.querySelector(".card-space");
+  const viewport = document.getElementById("cardViewport");
+  const scene = document.getElementById("card3d");
   const layer = document.getElementById("visualLayer");
+  const starsLayer = document.getElementById("starsLayer");
+  const lanternsLayer = document.getElementById("lanternsLayer");
+  const hint = document.getElementById("cardViewHint");
   const motion = effects.motion !== false;
   const speed = effects.speed || "normal";
 
-  if (effects.stars !== false) addStars(layer, random, true);
-  if (effects.lanterns !== false) addLanterns(layer, random, true);
+  if (effects.stars !== false) addStars(starsLayer, random, true);
+  if (effects.lanterns !== false) addLanterns(lanternsLayer, random, true);
 
-  // Bunny
   const bunny = document.createElement("div");
   bunny.className = "bunny";
   bunny.textContent = "🐇";
-  bunny.style.left = `${random()*22 + 3}%`;
-  bunny.style.top = `${random()*25 + 58}%`;
+  bunny.style.left = `${random() * 20 + 5}%`;
+  bunny.style.top = `${random() * 18 + 72}%`;
   bunny.style.animationPlayState = motion ? "running" : "paused";
   layer.appendChild(bunny);
 
   placePhotos(layer, Array.isArray(card.images) ? card.images : [], random, motion);
 
   const subMessages = Array.isArray(card.sub_messages) ? card.sub_messages : [];
-  subMessages.slice(0, 12).forEach((msg, i) => {
+  subMessages.slice(0, 8).forEach((msg, i) => {
     if (!msg) return;
     placeText(layer, msg, random, false, i, color);
   });
@@ -639,13 +655,12 @@ function renderCard(card) {
     color
   );
 
-  // Sender line
   if (card.sender_name) {
     const sender = document.createElement("div");
-    sender.className = "floating-text";
+    sender.className = "floating-text sender-text";
     sender.textContent = `— ${card.sender_name} gửi ${card.recipient_name || ""} —`;
     sender.style.left = "50%";
-    sender.style.top = "58%";
+    sender.style.top = "67%";
     sender.style.fontSize = "clamp(11px, 2.5vw, 18px)";
     sender.style.setProperty("--rot", "0deg");
     sender.style.setProperty("--td", "6s");
@@ -661,77 +676,133 @@ function renderCard(card) {
     }
   });
 
-  const audio = document.getElementById("bgMusic");
-  const musicButton = document.getElementById("musicButton");
+  // =========================
+  // 3D DRAG / SWIPE 360°
+  // =========================
+  let rotateY = 0;
+  let rotateX = -2;
+  let velocityY = 0;
+  let velocityX = 0;
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
+  let animationFrame = 0;
 
-  if (!card.music_url) {
-    musicButton.disabled = true;
-    musicButton.textContent = "♪ Không nhạc";
-  } else {
-    musicButton.addEventListener("click", async () => {
-      if (audio.paused) {
-        try {
-          await audio.play();
-          musicButton.textContent = "🔊 Nhạc";
-        } catch {
-          musicButton.textContent = "▶ Chạm để phát";
-        }
-      } else {
-        audio.pause();
-        musicButton.textContent = "🔇 Nhạc";
-      }
-    });
-  }
+  const updateTransform = () => {
+    scene.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  };
 
-  document.getElementById("backEdit").addEventListener("click", () => {
-    location.href = "/";
-  });
+  const animateInertia = () => {
+    if (dragging) return;
+    velocityY *= 0.94;
+    velocityX *= 0.92;
+    if (Math.abs(velocityY) < 0.02 && Math.abs(velocityX) < 0.02) {
+      animationFrame = 0;
+      return;
+    }
+    rotateY += velocityY;
+    rotateX = Math.max(-16, Math.min(16, rotateX + velocityX));
+    updateTransform();
+    animationFrame = requestAnimationFrame(animateInertia);
+  };
 
-  document.getElementById("qrButton").addEventListener("click", () => {
-    showQrModal(location.href, false);
-  });
+  const startDrag = event => {
+    dragging = true;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    velocityY = 0;
+    velocityX = 0;
+    viewport.classList.add("is-dragging");
+    hint.classList.add("is-hidden");
+    try { viewport.setPointerCapture(event.pointerId); } catch {}
+    event.preventDefault();
+  };
 
-  document.getElementById("shareButton").addEventListener("click", async () => {
-    const shareData = {
-      title: "Thiệp Trung Thu 💌",
-      text: `Bạn nhận được một tấm thiệp Trung Thu${card.recipient_name ? ` gửi ${card.recipient_name}` : ""}!`,
-      url: location.href
-    };
+  const moveDrag = event => {
+    if (!dragging) return;
+    const dx = event.clientX - lastX;
+    const dy = event.clientY - lastY;
+    lastX = event.clientX;
+    lastY = event.clientY;
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch {}
-    } else {
-      try {
-        await navigator.clipboard.writeText(location.href);
-        alert("Đã sao chép liên kết thiệp.");
-      } catch {
-        window.prompt("Sao chép liên kết:", location.href);
-      }
+    rotateY += dx * 0.48;
+    rotateX = Math.max(-16, Math.min(16, rotateX - dy * 0.16));
+    velocityY = dx * 0.48;
+    velocityX = -dy * 0.16;
+    updateTransform();
+    event.preventDefault();
+  };
+
+  const endDrag = event => {
+    if (!dragging) return;
+    dragging = false;
+    viewport.classList.remove("is-dragging");
+    try { viewport.releasePointerCapture(event.pointerId); } catch {}
+    if (!animationFrame) animationFrame = requestAnimationFrame(animateInertia);
+  };
+
+  viewport.addEventListener("pointerdown", startDrag);
+  viewport.addEventListener("pointermove", moveDrag, { passive: false });
+  viewport.addEventListener("pointerup", endDrag);
+  viewport.addEventListener("pointercancel", endDrag);
+  viewport.addEventListener("lostpointercapture", () => {
+    if (dragging) {
+      dragging = false;
+      viewport.classList.remove("is-dragging");
     }
   });
 
-  // Cho phép người xem chạm màn hình để bắt đầu nhạc nếu có.
-  if (card.music_url) {
-    const startMusicOnce = async () => {
-      try {
-        await audio.play();
-        musicButton.textContent = "🔊 Nhạc";
-      } catch {}
-      window.removeEventListener("pointerdown", startMusicOnce);
+  // Phím mũi tên cũng xoay được khi người dùng dùng bàn phím.
+  scene.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft") {
+      rotateY -= 22;
+      updateTransform();
+      hint.classList.add("is-hidden");
+    } else if (event.key === "ArrowRight") {
+      rotateY += 22;
+      updateTransform();
+      hint.classList.add("is-hidden");
+    } else if (event.key === "ArrowUp") {
+      rotateX = Math.max(-16, rotateX - 6);
+      updateTransform();
+    } else if (event.key === "ArrowDown") {
+      rotateX = Math.min(16, rotateX + 6);
+      updateTransform();
+    }
+  });
+
+  // Nghiêng thiết bị nhẹ để tạo chiều sâu khi không vuốt (chỉ khi có DeviceOrientation).
+  if (motion && "DeviceOrientationEvent" in window) {
+    let orientationEnabled = false;
+    const onOrientation = event => {
+      if (dragging) return;
+      const gamma = Number(event.gamma || 0);
+      const beta = Number(event.beta || 0);
+      const targetY = Math.max(-9, Math.min(9, gamma * 0.18));
+      const targetX = Math.max(-10, Math.min(10, -2 + (beta - 45) * 0.05));
+      scene.style.setProperty("--device-y", `${targetY}deg`);
+      scene.style.setProperty("--device-x", `${targetX}deg`);
     };
-    window.addEventListener("pointerdown", startMusicOnce, { once: true });
+    // iOS yêu cầu xin quyền sau một thao tác của người dùng.
+    viewport.addEventListener("click", async () => {
+      if (orientationEnabled) return;
+      try {
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+          const result = await DeviceOrientationEvent.requestPermission();
+          if (result !== "granted") return;
+        }
+        window.addEventListener("deviceorientation", onOrientation, { passive: true });
+        orientationEnabled = true;
+      } catch {}
+    }, { once: true });
   }
 
-  // Parallax rất nhẹ trên thiết bị hỗ trợ.
-  if (motion && window.matchMedia("(pointer:fine)").matches) {
-    window.addEventListener("pointermove", e => {
-      const x = (e.clientX / innerWidth - .5) * 2;
-      const y = (e.clientY / innerHeight - .5) * 2;
-      layer.style.transform = `translate(${x * 3}px, ${y * 3}px)`;
-    }, { passive: true });
+  // Khi không tương tác, card có chuyển động nổi rất nhẹ.
+  if (motion) {
+    space.classList.add("ambient-motion");
   }
+
+  updateTransform();
 }
 
 async function renderCardPage(cardId) {

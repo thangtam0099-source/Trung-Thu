@@ -176,3 +176,14 @@ Tạo URL /card/{id}
    ↓
 Tạo QR
 ```
+
+## Trang xem thiệp 3D
+
+- URL `/card/{id}` là **trang xem thiệp**, không hiển thị nút Tạo mới, QR hay Chia sẻ.
+- Thiệp có mặt trước và mặt sau 3D, có thể **kéo chuột hoặc vuốt bằng tay để xoay 360°**.
+- Hỗ trợ kéo dọc nhẹ để thay đổi góc nghiêng X.
+- Có quán tính khi thả tay và hiệu ứng nổi/lấp lánh nhẹ.
+- Trên điện thoại, vùng thiệp dùng Pointer Events nên hỗ trợ touch/pointer trực tiếp.
+
+Trang `/` vẫn là trang tạo thiệp và tạo QR như trước.
+
