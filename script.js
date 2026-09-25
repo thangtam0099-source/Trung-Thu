@@ -493,7 +493,7 @@ function seededRandom(seed) {
 function addStars(stage, random, enabled) {
   if (!enabled) return;
 
-  for (let i = 0; i < 115; i++) {
+  for (let i = 0; i < 55; i++) {
     const s = document.createElement("span");
     s.className = "star" + (random() > .9 ? " big" : "");
     s.style.left = `${random() * 100}%`;
@@ -609,6 +609,10 @@ function renderCard(card) {
 
   const motion = effects.motion !== false;
   const speed = effects.speed || "normal";
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const lowPowerDevice = Number(navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4;
+  const performanceMode = reducedMotion || lowPowerDevice;
+  if (performanceMode) space.classList.add("performance-mode");
 
   // Background stars stay in place while the memory objects rotate in 3D.
   if (effects.stars !== false) addStars(stars, random, true);
@@ -812,7 +816,7 @@ function renderCard(card) {
   });
 
   // Nhiều lớp lấp lánh: các tia sáng 4 cánh nằm trong chính không gian 3D.
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 16; i++) {
     const glint = document.createElement("span");
     glint.className = "sparkle-glint";
     glint.style.left = `${-520 + random() * 1040}px`;
@@ -823,7 +827,7 @@ function renderCard(card) {
     world.appendChild(glint);
   }
 
-  for (let i = 0; i < 65; i++) {
+  for (let i = 0; i < 28; i++) {
     const particle = document.createElement("span");
     particle.className = "world-particle";
     particle.style.left = `${-560 + random() * 1120}px`;
@@ -835,7 +839,7 @@ function renderCard(card) {
   }
 
   // Extra tiny stars inside the rotating world create a layered depth effect.
-  for (let i = 0; i < 75; i++) {
+  for (let i = 0; i < 28; i++) {
     const star = document.createElement("span");
     star.className = "world-depth-star";
     star.textContent = random() > .88 ? "✦" : "·";
@@ -853,8 +857,13 @@ function renderCard(card) {
   }
 
   // 3D rotation. Everything inside #memoryWorld moves together.
+  // Performance-focused input handling: pointer events only update target values;
+  // one requestAnimationFrame applies the transform. This prevents dozens of
+  // transform writes per frame on high-frequency touch/pointer events.
   let rotateY = 0;
   let rotateX = -3;
+  let targetY = 0;
+  let targetX = -3;
   let velocityY = 0;
   let velocityX = 0;
   let dragging = false;
@@ -862,11 +871,13 @@ function renderCard(card) {
   let lastY = 0;
   let animationFrame = 0;
   let zoom = 1;
+  let targetZoom = 1;
   const minZoom = 0.55;
   const maxZoom = 1.9;
   const pointers = new Map();
   let pinchStartDistance = 0;
   let pinchStartZoom = 1;
+  let transformQueued = false;
 
   const getBaseScale = () => {
     const widthScale = window.innerWidth / 1250;
@@ -876,10 +887,16 @@ function renderCard(card) {
 
   const clampZoom = value => Math.max(minZoom, Math.min(maxZoom, value));
 
-  const updateTransform = () => {
-    const scale = getBaseScale() * zoom;
+  const applyTransform = () => {
+    transformQueued = false;
     world.style.transform =
-      `translate3d(0,0,0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`;
+      `translate3d(0,0,0) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale(${(getBaseScale() * zoom).toFixed(3)})`;
+  };
+
+  const queueTransform = () => {
+    if (transformQueued) return;
+    transformQueued = true;
+    requestAnimationFrame(applyTransform);
   };
 
   const getPointerDistance = () => {
@@ -891,19 +908,24 @@ function renderCard(card) {
   };
 
   const animateInertia = () => {
-    if (dragging) return;
+    if (dragging) {
+      animationFrame = 0;
+      return;
+    }
 
-    velocityY *= 0.94;
-    velocityX *= 0.92;
+    velocityY *= performanceMode ? 0.90 : 0.94;
+    velocityX *= performanceMode ? 0.90 : 0.94;
 
-    if (Math.abs(velocityY) < 0.02 && Math.abs(velocityX) < 0.02) {
+    if (Math.abs(velocityY) < 0.015 && Math.abs(velocityX) < 0.015) {
       animationFrame = 0;
       return;
     }
 
     rotateY += velocityY;
     rotateX = Math.max(-28, Math.min(28, rotateX + velocityX));
-    updateTransform();
+    targetY = rotateY;
+    targetX = rotateX;
+    queueTransform();
     animationFrame = requestAnimationFrame(animateInertia);
   };
 
@@ -918,6 +940,7 @@ function renderCard(card) {
       pinchStartDistance = getPointerDistance();
       pinchStartZoom = zoom;
       viewport.classList.remove("is-dragging");
+      viewport.classList.add("is-interacting");
       event.preventDefault();
       return;
     }
@@ -927,7 +950,7 @@ function renderCard(card) {
     lastY = event.clientY;
     velocityY = 0;
     velocityX = 0;
-    viewport.classList.add("is-dragging");
+    viewport.classList.add("is-dragging", "is-interacting");
 
     try { viewport.setPointerCapture(event.pointerId); } catch {}
     event.preventDefault();
@@ -941,8 +964,9 @@ function renderCard(card) {
     if (pointers.size >= 2) {
       const distance = getPointerDistance();
       if (pinchStartDistance > 0 && distance > 0) {
-        zoom = clampZoom(pinchStartZoom * (distance / pinchStartDistance));
-        updateTransform();
+        targetZoom = clampZoom(pinchStartZoom * (distance / pinchStartDistance));
+        zoom += (targetZoom - zoom) * 0.28;
+        queueTransform();
       }
       event.preventDefault();
       return;
@@ -952,17 +976,16 @@ function renderCard(card) {
 
     const dx = event.clientX - lastX;
     const dy = event.clientY - lastY;
-
     lastX = event.clientX;
     lastY = event.clientY;
 
     rotateY += dx * 0.34;
     rotateX = Math.max(-28, Math.min(28, rotateX - dy * 0.16));
-
     velocityY = dx * 0.34;
     velocityX = -dy * 0.16;
-
-    updateTransform();
+    targetY = rotateY;
+    targetX = rotateX;
+    queueTransform();
     event.preventDefault();
   };
 
@@ -981,7 +1004,7 @@ function renderCard(card) {
 
     const wasDragging = dragging;
     dragging = false;
-    viewport.classList.remove("is-dragging");
+    viewport.classList.remove("is-dragging", "is-interacting");
     pinchStartDistance = 0;
 
     try { viewport.releasePointerCapture(event.pointerId); } catch {}
@@ -991,24 +1014,33 @@ function renderCard(card) {
     }
   };
 
-  viewport.addEventListener("pointerdown", startDrag);
+  viewport.addEventListener("pointerdown", startDrag, { passive: false });
   viewport.addEventListener("pointermove", moveDrag, { passive: false });
-  viewport.addEventListener("pointerup", endDrag);
-  viewport.addEventListener("pointercancel", endDrag);
+  viewport.addEventListener("pointerup", endDrag, { passive: true });
+  viewport.addEventListener("pointercancel", endDrag, { passive: true });
 
-  // Desktop: wheel zooms. Shift + wheel rotates horizontally.
+  // Wheel zoom: throttle transform writes through rAF.
+  let wheelTimer = 0;
   viewport.addEventListener("wheel", event => {
     if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
       rotateY += event.deltaX * 0.12 + event.deltaY * 0.04;
+      targetY = rotateY;
     } else {
-      zoom = clampZoom(zoom * Math.exp(-event.deltaY * 0.0012));
+      targetZoom = clampZoom(targetZoom * Math.exp(-event.deltaY * 0.0012));
+      if (!wheelTimer) {
+        wheelTimer = requestAnimationFrame(() => {
+          zoom += (targetZoom - zoom) * 0.55;
+          wheelTimer = 0;
+          queueTransform();
+        });
+      }
     }
-    updateTransform();
+    viewport.classList.add("is-interacting");
     hint.classList.add("is-hidden");
+    queueTransform();
     event.preventDefault();
   }, { passive: false });
 
-  // Keyboard support for desktop.
   viewport.tabIndex = 0;
   viewport.addEventListener("keydown", event => {
     if (event.key === "ArrowLeft") rotateY -= 18;
@@ -1019,22 +1051,23 @@ function renderCard(card) {
     else if (event.key === "-" || event.key === "_") zoom = clampZoom(zoom - 0.1);
     else if (event.key === "0") zoom = 1;
     else return;
-
+    targetZoom = zoom;
     hint.classList.add("is-hidden");
-    updateTransform();
+    queueTransform();
   });
 
-  // A very subtle device tilt on supported phones.
-  if (motion && "DeviceOrientationEvent" in window) {
+  // A very subtle device tilt on supported phones. It only changes CSS variables,
+  // avoiding another full transform write on every sensor event.
+  if (motion && !performanceMode && "DeviceOrientationEvent" in window) {
     let enabled = false;
     const onOrientation = event => {
       if (dragging) return;
       const gamma = Number(event.gamma || 0);
       const beta = Number(event.beta || 0);
-      const targetY = Math.max(-10, Math.min(10, gamma * 0.18));
-      const targetX = Math.max(-10, Math.min(10, -3 + (beta - 45) * 0.05));
-      world.style.setProperty("--device-y", `${targetY}deg`);
-      world.style.setProperty("--device-x", `${targetX}deg`);
+      const targetYDeg = Math.max(-8, Math.min(8, gamma * 0.14));
+      const targetXDeg = Math.max(-8, Math.min(8, -3 + (beta - 45) * 0.04));
+      space.style.setProperty("--device-y", `${targetYDeg}deg`);
+      space.style.setProperty("--device-x", `${targetXDeg}deg`);
     };
 
     viewport.addEventListener("click", async () => {
@@ -1050,10 +1083,18 @@ function renderCard(card) {
     }, { once: true });
   }
 
-  updateTransform();
-  window.addEventListener("resize", updateTransform, { passive: true });
+  // Pause expensive per-object animations while the user is actively manipulating
+  // the scene. Rotation itself stays GPU-composited and therefore remains smooth.
+  let interactionTimeout;
+  const clearInteraction = () => {
+    clearTimeout(interactionTimeout);
+    interactionTimeout = setTimeout(() => viewport.classList.remove("is-interacting"), 140);
+  };
+  ["pointermove", "wheel"].forEach(type => viewport.addEventListener(type, clearInteraction, { passive: true }));
 
-  // The hint is informational only; no controls are shown on the viewing page.
+  applyTransform();
+  window.addEventListener("resize", queueTransform, { passive: true });
+
   window.setTimeout(() => hint.classList.add("is-hidden"), 4200);
 }
 async function renderCardPage(cardId) {

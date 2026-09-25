@@ -731,6 +731,83 @@ select option {
   color: white;
 }
 
+
+/* =========================
+   3D PERFORMANCE OPTIMIZATION
+========================= */
+.memory-viewport {
+  touch-action: none;
+  overscroll-behavior: none;
+  contain: strict;
+  transform: translateZ(0);
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+}
+
+.memory-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.memory-world {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+  contain: layout style paint;
+  transform: translate3d(0,0,0);
+}
+
+.world-item {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Do not create a separate compositor layer for every particle/image.
+   The world itself is the main GPU layer. */
+.world-particle,
+.world-depth-star,
+.sparkle-glint,
+.world-text,
+.world-photo,
+.world-emoji {
+  will-change: auto;
+}
+
+/* Expensive animation is paused during direct manipulation. The 3D world
+   itself continues to move on the compositor, so dragging remains responsive. */
+.memory-viewport.is-interacting .world-text-rising,
+.memory-viewport.is-interacting .world-photo-rising,
+.memory-viewport.is-interacting .world-particle,
+.memory-viewport.is-interacting .sparkle-glint,
+.memory-viewport.is-interacting .world-depth-star {
+  animation-play-state: paused !important;
+}
+
+.memory-space.performance-mode .world-particle,
+.memory-space.performance-mode .world-depth-star {
+  display: none;
+}
+
+.memory-space.performance-mode .sparkle-glint {
+  animation-duration: 5s !important;
+}
+
+@media (max-width: 700px) {
+  .memory-space {
+    perspective: 850px !important;
+  }
+
+  .world-text {
+    text-shadow:
+      0 0 5px var(--theme, #ff72b5),
+      0 0 12px var(--theme, #ff72b5);
+  }
+
+  .world-photo {
+    box-shadow: 0 8px 18px rgba(0,0,0,.38), 0 0 12px rgba(255,114,181,.08) !important;
+  }
+}
+
 @media (max-width: 700px) {
   .grid {
     grid-template-columns: 1fr;
