@@ -583,104 +583,213 @@ function renderCard(card) {
 
   app.innerHTML = `
     <main class="card-page card-view-only">
-      <div class="card-space theme-${escapeHtml(card.theme || "pink")}" style="--theme:${color}; --theme-soft:${hexToRgba(color, .9)}">
-        <div class="space-bg"></div>
-        <div class="ambient-glow"></div>
-        <div class="moon"></div>
-        <div class="stars-layer" id="starsLayer"></div>
-        <div class="lanterns-layer" id="lanternsLayer"></div>
+      <div class="memory-space theme-${escapeHtml(card.theme || "pink")}" style="--theme:${color}; --theme-soft:${hexToRgba(color, .92)}">
+        <div class="memory-bg"></div>
+        <div class="memory-nebula"></div>
+        <div class="memory-stars" id="memoryStars"></div>
 
-        <div class="card-view-hint" id="cardViewHint">
-          <span class="hint-icon">↔</span>
-          <span>Kéo hoặc vuốt để xoay 360°</span>
+        <div class="memory-viewport" id="memoryViewport" aria-label="Không gian kỷ niệm 3D, kéo hoặc vuốt để xoay 360 độ">
+          <div class="memory-world" id="memoryWorld"></div>
         </div>
 
-        <div class="card-viewport" id="cardViewport" aria-label="Thiệp Trung Thu 3D, kéo để xoay">
-          <div class="card-3d" id="card3d" tabindex="0">
-            <section class="card-face card-front">
-              <div class="card-face-glow"></div>
-              <div class="card-rim"></div>
-              <div class="card-front-content" id="visualLayer"></div>
-            </section>
-
-            <section class="card-face card-back">
-              <div class="back-decoration back-moon">🌕</div>
-              <div class="back-decoration back-bunny">🐇</div>
-              <div class="back-stars">✦　✧　✦</div>
-              <div class="back-title">Trung Thu</div>
-              <div class="back-message">Một mùa trăng thật dịu dàng<br>và nhiều kỷ niệm đẹp ✨</div>
-              <div class="back-sender">${escapeHtml(card.sender_name ? `— ${card.sender_name} —` : "Chúc bạn một mùa Trung Thu thật vui vẻ")}</div>
-            </section>
-          </div>
+        <div class="memory-center-glow"></div>
+        <div class="memory-hint" id="memoryHint">
+          <span>↔</span>
+          <span>Vuốt hoặc kéo để xoay 360°</span>
         </div>
       </div>
     </main>
   `;
 
-  const space = document.querySelector(".card-space");
-  const viewport = document.getElementById("cardViewport");
-  const scene = document.getElementById("card3d");
-  const layer = document.getElementById("visualLayer");
-  const starsLayer = document.getElementById("starsLayer");
-  const lanternsLayer = document.getElementById("lanternsLayer");
-  const hint = document.getElementById("cardViewHint");
+  const space = document.querySelector(".memory-space");
+  const viewport = document.getElementById("memoryViewport");
+  const world = document.getElementById("memoryWorld");
+  const stars = document.getElementById("memoryStars");
+  const hint = document.getElementById("memoryHint");
+
   const motion = effects.motion !== false;
   const speed = effects.speed || "normal";
 
-  if (effects.stars !== false) addStars(starsLayer, random, true);
-  if (effects.lanterns !== false) addLanterns(lanternsLayer, random, true);
+  // Background stars stay in place while the memory objects rotate in 3D.
+  if (effects.stars !== false) addStars(stars, random, true);
 
-  const bunny = document.createElement("div");
-  bunny.className = "bunny";
-  bunny.textContent = "🐇";
-  bunny.style.left = `${random() * 20 + 5}%`;
-  bunny.style.top = `${random() * 18 + 72}%`;
-  bunny.style.animationPlayState = motion ? "running" : "paused";
-  layer.appendChild(bunny);
+  const photos = Array.isArray(card.images) ? card.images.filter(Boolean).slice(0, 15) : [];
+  const subMessages = Array.isArray(card.sub_messages)
+    ? card.sub_messages.filter(Boolean).slice(0, 10)
+    : [];
 
-  placePhotos(layer, Array.isArray(card.images) ? card.images : [], random, motion);
+  const mainMessage = card.main_message ||
+    `Chúc ${card.recipient_name || ""} một mùa Trung Thu đáng nhớ`;
 
-  const subMessages = Array.isArray(card.sub_messages) ? card.sub_messages : [];
-  subMessages.slice(0, 8).forEach((msg, i) => {
-    if (!msg) return;
-    placeText(layer, msg, random, false, i, color);
+  const items = [];
+
+  // Main greeting gets a few layers so the center feels alive.
+  items.push({
+    type: "text",
+    text: mainMessage,
+    cls: "world-main",
+    size: 1.0,
+    x: 0, y: -18, z: 70,
+    rx: 0, ry: 0, rz: -2
   });
 
-  placeText(
-    layer,
-    card.main_message || `Chúc ${card.recipient_name || ""} một mùa Trung thu đáng nhớ`,
-    random,
-    true,
-    0,
-    color
-  );
-
   if (card.sender_name) {
-    const sender = document.createElement("div");
-    sender.className = "floating-text sender-text";
-    sender.textContent = `— ${card.sender_name} gửi ${card.recipient_name || ""} —`;
-    sender.style.left = "50%";
-    sender.style.top = "67%";
-    sender.style.fontSize = "clamp(11px, 2.5vw, 18px)";
-    sender.style.setProperty("--rot", "0deg");
-    sender.style.setProperty("--td", "6s");
-    layer.appendChild(sender);
+    items.push({
+      type: "text",
+      text: `— ${card.sender_name} gửi ${card.recipient_name || ""} —`,
+      cls: "world-sender",
+      size: .62,
+      x: 0, y: 40, z: 90,
+      rx: 0, ry: 0, rz: 0
+    });
   }
 
-  const multiplier = speed === "slow" ? 1.45 : speed === "fast" ? .65 : 1;
-  document.querySelectorAll(".floating-text, .card-photo, .lantern, .bunny").forEach(el => {
-    const current = getComputedStyle(el).animationDuration;
-    if (current && current !== "0s") {
-      const seconds = parseFloat(current);
-      if (!Number.isNaN(seconds)) el.style.animationDuration = `${seconds * multiplier}s`;
+  // Repeat a small number of messages around the scene to create the
+  // "memory universe" look from the reference.
+  subMessages.forEach((text, i) => {
+    const repeats = i < 4 ? 2 : 1;
+    for (let r = 0; r < repeats; r++) {
+      items.push({
+        type: "text",
+        text,
+        cls: "world-message",
+        size: .72 + random() * .28,
+        x: -390 + random() * 780,
+        y: -300 + random() * 600,
+        z: -280 + random() * 620,
+        rx: random() * 10 - 5,
+        ry: random() * 18 - 9,
+        rz: random() * 12 - 6
+      });
     }
   });
 
-  // =========================
-  // 3D DRAG / SWIPE 360°
-  // =========================
+  // The recipient and main message also appear as small floating labels.
+  const labels = [
+    card.recipient_name ? `♡ ${card.recipient_name}` : "",
+    "trung thu vui vẻ",
+    "i love you",
+    "cảm ơn em vì tất cả",
+    "chúc em một đời bình an",
+    "thật nhiều kỷ niệm đẹp"
+  ].filter(Boolean);
+
+  labels.forEach((text, i) => {
+    items.push({
+      type: "text",
+      text,
+      cls: "world-message world-label",
+      size: .58 + random() * .22,
+      x: -450 + random() * 900,
+      y: -260 + random() * 520,
+      z: -350 + random() * 650,
+      rx: random() * 12 - 6,
+      ry: random() * 24 - 12,
+      rz: random() * 14 - 7
+    });
+  });
+
+  photos.forEach((url, i) => {
+    items.push({
+      type: "photo",
+      url,
+      x: -440 + random() * 880,
+      y: -280 + random() * 560,
+      z: -360 + random() * 700,
+      w: 105 + random() * 70,
+      h: 135 + random() * 95,
+      rx: random() * 16 - 8,
+      ry: random() * 26 - 13,
+      rz: random() * 18 - 9
+    });
+  });
+
+  // Decorative objects are also part of the rotating 3D world.
+  [
+    ["🌕", "world-moon", -260, -230, 80],
+    ["🐇", "world-bunny", 35, 15, 170],
+    ["🏮", "world-lantern", -520, 150, -80],
+    ["🏮", "world-lantern", 430, -160, 20],
+    ["🏮", "world-lantern", 250, 270, -190],
+    ["✨", "world-spark", -90, 220, 30],
+    ["💖", "world-heart", 510, 210, 80]
+  ].forEach(([emoji, cls, x, y, z]) => {
+    items.push({
+      type: "emoji", emoji, cls, x, y, z,
+      rx: random() * 10 - 5,
+      ry: random() * 20 - 10,
+      rz: random() * 12 - 6
+    });
+  });
+
+  function addWorldText(item) {
+    const el = document.createElement("div");
+    el.className = `world-item world-text ${item.cls || ""}`;
+    el.textContent = item.text;
+    el.style.left = `${item.x}px`;
+    el.style.top = `${item.y}px`;
+    el.style.transform =
+      `translate3d(-50%, -50%, ${item.z}px) rotateX(${item.rx}deg) rotateY(${item.ry}deg) rotateZ(${item.rz}deg) scale(${item.size || 1})`;
+    el.style.color = color;
+    world.appendChild(el);
+  }
+
+  function addWorldPhoto(item) {
+    const frame = document.createElement("div");
+    frame.className = "world-item world-photo";
+    frame.style.left = `${item.x}px`;
+    frame.style.top = `${item.y}px`;
+    frame.style.width = `${item.w}px`;
+    frame.style.height = `${item.h}px`;
+    frame.style.transform =
+      `translate3d(-50%, -50%, ${item.z}px) rotateX(${item.rx}deg) rotateY(${item.ry}deg) rotateZ(${item.rz}deg)`;
+
+    const img = document.createElement("img");
+    img.src = item.url;
+    img.alt = "Ảnh kỷ niệm";
+    img.loading = "eager";
+    frame.appendChild(img);
+    world.appendChild(frame);
+  }
+
+  function addWorldEmoji(item) {
+    const el = document.createElement("div");
+    el.className = `world-item world-emoji ${item.cls || ""}`;
+    el.textContent = item.emoji;
+    el.style.left = `${item.x}px`;
+    el.style.top = `${item.y}px`;
+    el.style.transform =
+      `translate3d(-50%, -50%, ${item.z}px) rotateX(${item.rx}deg) rotateY(${item.ry}deg) rotateZ(${item.rz}deg)`;
+    world.appendChild(el);
+  }
+
+  items.forEach(item => {
+    if (item.type === "text") addWorldText(item);
+    else if (item.type === "photo") addWorldPhoto(item);
+    else addWorldEmoji(item);
+  });
+
+  // Extra tiny stars inside the rotating world create a layered depth effect.
+  for (let i = 0; i < 75; i++) {
+    const star = document.createElement("span");
+    star.className = "world-depth-star";
+    star.textContent = random() > .88 ? "✦" : "·";
+    star.style.left = `${-520 + random() * 1040}px`;
+    star.style.top = `${-360 + random() * 720}px`;
+    star.style.transform = `translate3d(-50%, -50%, ${-420 + random() * 850}px)`;
+    star.style.fontSize = `${7 + random() * 11}px`;
+    world.appendChild(star);
+  }
+
+  const multiplier = speed === "slow" ? 1.45 : speed === "fast" ? .65 : 1;
+  if (motion) {
+    space.classList.add("world-ambient-motion");
+    world.style.setProperty("--float-duration", `${(7 * multiplier).toFixed(2)}s`);
+  }
+
+  // 3D rotation. Everything inside #memoryWorld moves together.
   let rotateY = 0;
-  let rotateX = -2;
+  let rotateX = -3;
   let velocityY = 0;
   let velocityX = 0;
   let dragging = false;
@@ -688,20 +797,31 @@ function renderCard(card) {
   let lastY = 0;
   let animationFrame = 0;
 
+  const getWorldScale = () => {
+    const widthScale = window.innerWidth / 1250;
+    const heightScale = window.innerHeight / 820;
+    return Math.min(1, Math.max(0.58, Math.min(widthScale, heightScale)));
+  };
+
   const updateTransform = () => {
-    scene.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+    const scale = getWorldScale();
+    world.style.transform =
+      `translate3d(0,0,0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`;
   };
 
   const animateInertia = () => {
     if (dragging) return;
+
     velocityY *= 0.94;
     velocityX *= 0.92;
+
     if (Math.abs(velocityY) < 0.02 && Math.abs(velocityX) < 0.02) {
       animationFrame = 0;
       return;
     }
+
     rotateY += velocityY;
-    rotateX = Math.max(-16, Math.min(16, rotateX + velocityX));
+    rotateX = Math.max(-28, Math.min(28, rotateX + velocityX));
     updateTransform();
     animationFrame = requestAnimationFrame(animateInertia);
   };
@@ -714,97 +834,103 @@ function renderCard(card) {
     velocityX = 0;
     viewport.classList.add("is-dragging");
     hint.classList.add("is-hidden");
-    try { viewport.setPointerCapture(event.pointerId); } catch {}
+
+    try {
+      viewport.setPointerCapture(event.pointerId);
+    } catch {}
+
     event.preventDefault();
   };
 
   const moveDrag = event => {
     if (!dragging) return;
+
     const dx = event.clientX - lastX;
     const dy = event.clientY - lastY;
+
     lastX = event.clientX;
     lastY = event.clientY;
 
-    rotateY += dx * 0.48;
-    rotateX = Math.max(-16, Math.min(16, rotateX - dy * 0.16));
-    velocityY = dx * 0.48;
+    rotateY += dx * 0.34;
+    rotateX = Math.max(-28, Math.min(28, rotateX - dy * 0.16));
+
+    velocityY = dx * 0.34;
     velocityX = -dy * 0.16;
+
     updateTransform();
     event.preventDefault();
   };
 
   const endDrag = event => {
     if (!dragging) return;
+
     dragging = false;
     viewport.classList.remove("is-dragging");
-    try { viewport.releasePointerCapture(event.pointerId); } catch {}
-    if (!animationFrame) animationFrame = requestAnimationFrame(animateInertia);
+
+    try {
+      viewport.releasePointerCapture(event.pointerId);
+    } catch {}
+
+    if (!animationFrame) {
+      animationFrame = requestAnimationFrame(animateInertia);
+    }
   };
 
   viewport.addEventListener("pointerdown", startDrag);
   viewport.addEventListener("pointermove", moveDrag, { passive: false });
   viewport.addEventListener("pointerup", endDrag);
   viewport.addEventListener("pointercancel", endDrag);
-  viewport.addEventListener("lostpointercapture", () => {
-    if (dragging) {
-      dragging = false;
-      viewport.classList.remove("is-dragging");
-    }
+
+  viewport.addEventListener("wheel", event => {
+    rotateY += event.deltaX * 0.08 + event.deltaY * 0.025;
+    updateTransform();
+    hint.classList.add("is-hidden");
+  }, { passive: true });
+
+  // Keyboard support for desktop.
+  viewport.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft") rotateY -= 18;
+    else if (event.key === "ArrowRight") rotateY += 18;
+    else if (event.key === "ArrowUp") rotateX = Math.max(-28, rotateX - 6);
+    else if (event.key === "ArrowDown") rotateX = Math.min(28, rotateX + 6);
+    else return;
+
+    hint.classList.add("is-hidden");
+    updateTransform();
   });
 
-  // Phím mũi tên cũng xoay được khi người dùng dùng bàn phím.
-  scene.addEventListener("keydown", event => {
-    if (event.key === "ArrowLeft") {
-      rotateY -= 22;
-      updateTransform();
-      hint.classList.add("is-hidden");
-    } else if (event.key === "ArrowRight") {
-      rotateY += 22;
-      updateTransform();
-      hint.classList.add("is-hidden");
-    } else if (event.key === "ArrowUp") {
-      rotateX = Math.max(-16, rotateX - 6);
-      updateTransform();
-    } else if (event.key === "ArrowDown") {
-      rotateX = Math.min(16, rotateX + 6);
-      updateTransform();
-    }
-  });
-
-  // Nghiêng thiết bị nhẹ để tạo chiều sâu khi không vuốt (chỉ khi có DeviceOrientation).
+  // A very subtle device tilt on supported phones.
   if (motion && "DeviceOrientationEvent" in window) {
-    let orientationEnabled = false;
+    let enabled = false;
     const onOrientation = event => {
       if (dragging) return;
       const gamma = Number(event.gamma || 0);
       const beta = Number(event.beta || 0);
-      const targetY = Math.max(-9, Math.min(9, gamma * 0.18));
-      const targetX = Math.max(-10, Math.min(10, -2 + (beta - 45) * 0.05));
-      scene.style.setProperty("--device-y", `${targetY}deg`);
-      scene.style.setProperty("--device-x", `${targetX}deg`);
+      const targetY = Math.max(-10, Math.min(10, gamma * 0.18));
+      const targetX = Math.max(-10, Math.min(10, -3 + (beta - 45) * 0.05));
+      world.style.setProperty("--device-y", `${targetY}deg`);
+      world.style.setProperty("--device-x", `${targetX}deg`);
     };
-    // iOS yêu cầu xin quyền sau một thao tác của người dùng.
+
     viewport.addEventListener("click", async () => {
-      if (orientationEnabled) return;
+      if (enabled) return;
       try {
         if (typeof DeviceOrientationEvent.requestPermission === "function") {
           const result = await DeviceOrientationEvent.requestPermission();
           if (result !== "granted") return;
         }
         window.addEventListener("deviceorientation", onOrientation, { passive: true });
-        orientationEnabled = true;
+        enabled = true;
       } catch {}
     }, { once: true });
   }
 
-  // Khi không tương tác, card có chuyển động nổi rất nhẹ.
-  if (motion) {
-    space.classList.add("ambient-motion");
-  }
-
   updateTransform();
-}
+  window.addEventListener("resize", updateTransform, { passive: true });
 
+  // The hint is informational only; no controls are shown on the viewing page.
+  window.setTimeout(() => hint.classList.add("is-hidden"), 4200);
+}
 async function renderCardPage(cardId) {
   showLoading();
 
