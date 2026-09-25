@@ -1186,3 +1186,146 @@ select option {
     animation: none;
   }
 }
+
+/* =========================
+   MOVING PHOTOS + SPARKLE FX
+========================= */
+.world-photo-rising {
+  animation: worldPhotoRise var(--photo-rise-duration, 18s) linear infinite;
+  will-change: top, opacity;
+}
+
+@keyframes worldPhotoRise {
+  0% {
+    top: var(--photo-rise-start, 620px);
+    opacity: 0;
+  }
+  7% {
+    opacity: .98;
+  }
+  88% {
+    opacity: .96;
+  }
+  100% {
+    top: var(--photo-rise-end, -700px);
+    opacity: 0;
+  }
+}
+
+/* Keep the uploaded image's native aspect ratio and never crop it. */
+.world-photo img {
+  height: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  image-rendering: auto;
+}
+
+/* More layered sparkle: tiny stars, 4-point glints and soft particles. */
+.memory-stars::before,
+.memory-stars::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,.95) 0 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(255,220,135,.85) 0 1.2px, transparent 2px),
+    radial-gradient(circle, rgba(255,160,220,.75) 0 1px, transparent 1.8px);
+  background-size: 150px 170px, 220px 230px, 310px 280px;
+  background-position: 12px 35px, 80px 100px, 30px 10px;
+  opacity: .48;
+  animation: starDrift 16s linear infinite;
+}
+
+.memory-stars::after {
+  opacity: .28;
+  filter: blur(.4px);
+  transform: scale(1.08);
+  animation-duration: 23s;
+  animation-direction: reverse;
+}
+
+@keyframes starDrift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-70px, -120px, 0); }
+}
+
+.sparkle-glint {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fffdf0;
+  box-shadow:
+    0 0 6px 2px rgba(255,255,255,.95),
+    0 0 18px 5px rgba(255,214,111,.72),
+    0 0 34px 9px color-mix(in srgb, var(--theme) 32%, transparent);
+  pointer-events: none;
+  z-index: 2;
+  animation: glintPulse var(--glint-duration, 2.8s) ease-in-out infinite;
+  animation-delay: var(--glint-delay, 0s);
+}
+
+.sparkle-glint::before,
+.sparkle-glint::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: linear-gradient(transparent, rgba(255,255,255,.95), transparent);
+}
+
+.sparkle-glint::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+@keyframes glintPulse {
+  0%, 100% { opacity: .05; transform: scale(.35); }
+  38% { opacity: .95; transform: scale(1); }
+  52% { opacity: .2; transform: scale(.65); }
+  70% { opacity: .82; transform: scale(1.15); }
+}
+
+.world-photo {
+  transition: filter .35s ease;
+}
+
+.world-photo::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 11px;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,.42) 45%, transparent 65%);
+  transform: translateX(-120%);
+  animation: photoSheen 7s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes photoSheen {
+  0%, 72% { transform: translateX(-120%); opacity: 0; }
+  78% { opacity: .8; }
+  88%, 100% { transform: translateX(120%); opacity: 0; }
+}
+
+/* Subtle glowing particles drifting through the 3D scene. */
+.world-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff7cf;
+  box-shadow: 0 0 10px 3px rgba(255,224,139,.7);
+  pointer-events: none;
+  animation: particlePulse var(--particle-duration, 5s) ease-in-out infinite alternate;
+}
+
+@keyframes particlePulse {
+  from { opacity: .15; transform: translate3d(0, 8px, 0) scale(.7); }
+  to { opacity: .95; transform: translate3d(0, -10px, 0) scale(1.35); }
+}

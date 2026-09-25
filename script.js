@@ -595,7 +595,7 @@ function renderCard(card) {
         <div class="memory-center-glow"></div>
         <div class="memory-hint" id="memoryHint">
           <span>↔</span>
-          <span>Vuốt hoặc kéo để xoay 360°</span>
+          <span>Kéo để xoay 360° • chụm 2 ngón để phóng to / thu nhỏ</span>
         </div>
       </div>
     </main>
@@ -703,13 +703,18 @@ function renderCard(card) {
     items.push({
       type: "photo",
       url,
+      // Ảnh cũng trôi từ dưới lên trên giống các dòng chữ.
       x: -440 + random() * 880,
-      y: -280 + random() * 560,
+      y: 520 + random() * 120,
       z: -360 + random() * 700,
       w: 130 + random() * 90,
       rx: random() * 16 - 8,
       ry: random() * 26 - 13,
-      rz: random() * 18 - 9
+      rz: random() * 18 - 9,
+      riseDuration: 14 + random() * 10,
+      riseDelay: -random() * 24,
+      riseStart: 620 + random() * 120,
+      riseEnd: -700 - random() * 140
     });
   });
 
@@ -758,9 +763,13 @@ function renderCard(card) {
 
   function addWorldPhoto(item) {
     const frame = document.createElement("div");
-    frame.className = "world-item world-photo";
+    frame.className = "world-item world-photo world-photo-rising";
     frame.style.left = `${item.x}px`;
     frame.style.top = `${item.y}px`;
+    frame.style.setProperty("--photo-rise-start", `${item.riseStart ?? 620}px`);
+    frame.style.setProperty("--photo-rise-end", `${item.riseEnd ?? -700}px`);
+    frame.style.setProperty("--photo-rise-duration", `${(item.riseDuration || 18).toFixed(2)}s`);
+    frame.style.animationDelay = `${(item.riseDelay ?? 0).toFixed(2)}s`;
     frame.style.width = `${item.w}px`;
     frame.style.transform =
       `translate3d(-50%, -50%, ${item.z}px) rotateX(${item.rx}deg) rotateY(${item.ry}deg) rotateZ(${item.rz}deg)`;
@@ -802,6 +811,29 @@ function renderCard(card) {
     else addWorldEmoji(item);
   });
 
+  // Nhiều lớp lấp lánh: các tia sáng 4 cánh nằm trong chính không gian 3D.
+  for (let i = 0; i < 34; i++) {
+    const glint = document.createElement("span");
+    glint.className = "sparkle-glint";
+    glint.style.left = `${-520 + random() * 1040}px`;
+    glint.style.top = `${-360 + random() * 720}px`;
+    glint.style.transform = `translate3d(-50%, -50%, ${-420 + random() * 850}px) scale(${.55 + random() * .9})`;
+    glint.style.setProperty("--glint-duration", `${2.2 + random() * 3.8}s`);
+    glint.style.setProperty("--glint-delay", `${-random() * 5}s`);
+    world.appendChild(glint);
+  }
+
+  for (let i = 0; i < 65; i++) {
+    const particle = document.createElement("span");
+    particle.className = "world-particle";
+    particle.style.left = `${-560 + random() * 1120}px`;
+    particle.style.top = `${-390 + random() * 780}px`;
+    particle.style.transform = `translate3d(-50%, -50%, ${-460 + random() * 920}px)`;
+    particle.style.setProperty("--particle-duration", `${3 + random() * 5}s`);
+    particle.style.animationDelay = `${-random() * 6}s`;
+    world.appendChild(particle);
+  }
+
   // Extra tiny stars inside the rotating world create a layered depth effect.
   for (let i = 0; i < 75; i++) {
     const star = document.createElement("span");
@@ -829,17 +861,33 @@ function renderCard(card) {
   let lastX = 0;
   let lastY = 0;
   let animationFrame = 0;
+  let zoom = 1;
+  const minZoom = 0.55;
+  const maxZoom = 1.9;
+  const pointers = new Map();
+  let pinchStartDistance = 0;
+  let pinchStartZoom = 1;
 
-  const getWorldScale = () => {
+  const getBaseScale = () => {
     const widthScale = window.innerWidth / 1250;
     const heightScale = window.innerHeight / 820;
     return Math.min(1, Math.max(0.58, Math.min(widthScale, heightScale)));
   };
 
+  const clampZoom = value => Math.max(minZoom, Math.min(maxZoom, value));
+
   const updateTransform = () => {
-    const scale = getWorldScale();
+    const scale = getBaseScale() * zoom;
     world.style.transform =
       `translate3d(0,0,0) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`;
+  };
+
+  const getPointerDistance = () => {
+    const pts = [...pointers.values()];
+    if (pts.length < 2) return 0;
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    return Math.hypot(dx, dy);
   };
 
   const animateInertia = () => {
@@ -860,22 +908,46 @@ function renderCard(card) {
   };
 
   const startDrag = event => {
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    hint.classList.add("is-hidden");
+
+    if (pointers.size >= 2) {
+      dragging = false;
+      velocityY = 0;
+      velocityX = 0;
+      pinchStartDistance = getPointerDistance();
+      pinchStartZoom = zoom;
+      viewport.classList.remove("is-dragging");
+      event.preventDefault();
+      return;
+    }
+
     dragging = true;
     lastX = event.clientX;
     lastY = event.clientY;
     velocityY = 0;
     velocityX = 0;
     viewport.classList.add("is-dragging");
-    hint.classList.add("is-hidden");
 
-    try {
-      viewport.setPointerCapture(event.pointerId);
-    } catch {}
-
+    try { viewport.setPointerCapture(event.pointerId); } catch {}
     event.preventDefault();
   };
 
   const moveDrag = event => {
+    if (pointers.has(event.pointerId)) {
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    if (pointers.size >= 2) {
+      const distance = getPointerDistance();
+      if (pinchStartDistance > 0 && distance > 0) {
+        zoom = clampZoom(pinchStartZoom * (distance / pinchStartDistance));
+        updateTransform();
+      }
+      event.preventDefault();
+      return;
+    }
+
     if (!dragging) return;
 
     const dx = event.clientX - lastX;
@@ -895,16 +967,26 @@ function renderCard(card) {
   };
 
   const endDrag = event => {
-    if (!dragging) return;
+    pointers.delete(event.pointerId);
 
+    if (pointers.size >= 1) {
+      if (pointers.size === 1) {
+        const remaining = [...pointers.values()][0];
+        dragging = false;
+        lastX = remaining.x;
+        lastY = remaining.y;
+      }
+      return;
+    }
+
+    const wasDragging = dragging;
     dragging = false;
     viewport.classList.remove("is-dragging");
+    pinchStartDistance = 0;
 
-    try {
-      viewport.releasePointerCapture(event.pointerId);
-    } catch {}
+    try { viewport.releasePointerCapture(event.pointerId); } catch {}
 
-    if (!animationFrame) {
+    if (wasDragging && !animationFrame) {
       animationFrame = requestAnimationFrame(animateInertia);
     }
   };
@@ -914,18 +996,28 @@ function renderCard(card) {
   viewport.addEventListener("pointerup", endDrag);
   viewport.addEventListener("pointercancel", endDrag);
 
+  // Desktop: wheel zooms. Shift + wheel rotates horizontally.
   viewport.addEventListener("wheel", event => {
-    rotateY += event.deltaX * 0.08 + event.deltaY * 0.025;
+    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      rotateY += event.deltaX * 0.12 + event.deltaY * 0.04;
+    } else {
+      zoom = clampZoom(zoom * Math.exp(-event.deltaY * 0.0012));
+    }
     updateTransform();
     hint.classList.add("is-hidden");
-  }, { passive: true });
+    event.preventDefault();
+  }, { passive: false });
 
   // Keyboard support for desktop.
+  viewport.tabIndex = 0;
   viewport.addEventListener("keydown", event => {
     if (event.key === "ArrowLeft") rotateY -= 18;
     else if (event.key === "ArrowRight") rotateY += 18;
     else if (event.key === "ArrowUp") rotateX = Math.max(-28, rotateX - 6);
     else if (event.key === "ArrowDown") rotateX = Math.min(28, rotateX + 6);
+    else if (event.key === "+" || event.key === "=") zoom = clampZoom(zoom + 0.1);
+    else if (event.key === "-" || event.key === "_") zoom = clampZoom(zoom - 0.1);
+    else if (event.key === "0") zoom = 1;
     else return;
 
     hint.classList.add("is-hidden");
