@@ -1,0 +1,9 @@
+{
+  "name": "trung-thu-card",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx serve .",
+    "deploy": "npx vercel --prod"
+  }
+}
