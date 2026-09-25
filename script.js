@@ -647,7 +647,7 @@ function renderCard(card) {
   // Repeat a small number of messages around the scene to create the
   // "memory universe" look from the reference.
   subMessages.forEach((text, i) => {
-    const repeats = i < 4 ? 2 : 1;
+    const repeats = i < 4 ? 3 : 2;
     for (let r = 0; r < repeats; r++) {
       items.push({
         type: "text",
@@ -659,7 +659,11 @@ function renderCard(card) {
         z: -280 + random() * 620,
         rx: random() * 10 - 5,
         ry: random() * 18 - 9,
-        rz: random() * 12 - 6
+        rz: random() * 12 - 6,
+        riseDuration: 10 + random() * 8,
+        riseDelay: -random() * 18,
+        riseStart: 520 + random() * 120,
+        riseEnd: -560 - random() * 140
       });
     }
   });
@@ -675,18 +679,24 @@ function renderCard(card) {
   ].filter(Boolean);
 
   labels.forEach((text, i) => {
-    items.push({
-      type: "text",
-      text,
-      cls: "world-message world-label",
-      size: .58 + random() * .22,
-      x: -450 + random() * 900,
-      y: -260 + random() * 520,
-      z: -350 + random() * 650,
-      rx: random() * 12 - 6,
-      ry: random() * 24 - 12,
-      rz: random() * 14 - 7
-    });
+    for (let r = 0; r < 2; r++) {
+      items.push({
+        type: "text",
+        text,
+        cls: "world-message world-label",
+        size: .58 + random() * .22,
+        x: -450 + random() * 900,
+        y: -260 + random() * 520,
+        z: -350 + random() * 650,
+        rx: random() * 12 - 6,
+        ry: random() * 24 - 12,
+        rz: random() * 14 - 7,
+        riseDuration: 11 + random() * 8,
+        riseDelay: -random() * 18 - r * 6,
+        riseStart: 520 + random() * 120,
+        riseEnd: -560 - random() * 140
+      });
+    }
   });
 
   photos.forEach((url, i) => {
@@ -696,8 +706,7 @@ function renderCard(card) {
       x: -440 + random() * 880,
       y: -280 + random() * 560,
       z: -360 + random() * 700,
-      w: 105 + random() * 70,
-      h: 135 + random() * 95,
+      w: 130 + random() * 90,
       rx: random() * 16 - 8,
       ry: random() * 26 - 13,
       rz: random() * 18 - 9
@@ -731,6 +740,19 @@ function renderCard(card) {
     el.style.transform =
       `translate3d(-50%, -50%, ${item.z}px) rotateX(${item.rx}deg) rotateY(${item.ry}deg) rotateZ(${item.rz}deg) scale(${item.size || 1})`;
     el.style.color = color;
+
+    // Các câu chữ phụ chạy liên tục từ dưới lên trên, mỗi câu có tốc độ
+    // và độ trễ khác nhau để tạo cảm giác như dòng ký ức đang trôi.
+    if (!item.staticText) {
+      const duration = item.riseDuration || (9 + random() * 8);
+      const delay = item.riseDelay ?? (-random() * duration);
+      el.classList.add("world-text-rising");
+      el.style.setProperty("--rise-start", `${item.riseStart ?? 500}px`);
+      el.style.setProperty("--rise-end", `${item.riseEnd ?? -520}px`);
+      el.style.setProperty("--rise-duration", `${duration.toFixed(2)}s`);
+      el.style.animationDelay = `${delay.toFixed(2)}s`;
+    }
+
     world.appendChild(el);
   }
 
@@ -740,7 +762,6 @@ function renderCard(card) {
     frame.style.left = `${item.x}px`;
     frame.style.top = `${item.y}px`;
     frame.style.width = `${item.w}px`;
-    frame.style.height = `${item.h}px`;
     frame.style.transform =
       `translate3d(-50%, -50%, ${item.z}px) rotateX(${item.rx}deg) rotateY(${item.ry}deg) rotateZ(${item.rz}deg)`;
 
@@ -748,6 +769,18 @@ function renderCard(card) {
     img.src = item.url;
     img.alt = "Ảnh kỷ niệm";
     img.loading = "eager";
+    img.decoding = "async";
+
+    // Giữ nguyên tỉ lệ ảnh gốc: không ép chiều cao và không object-fit: cover.
+    // Nếu ảnh nhỏ, không phóng to vượt quá kích thước pixel tự nhiên của nó.
+    img.addEventListener("load", () => {
+      if (img.naturalWidth > 0) {
+        const targetWidth = Math.min(item.w, img.naturalWidth);
+        frame.style.width = `${targetWidth}px`;
+      }
+      frame.style.height = "auto";
+    }, { once: true });
+
     frame.appendChild(img);
     world.appendChild(frame);
   }

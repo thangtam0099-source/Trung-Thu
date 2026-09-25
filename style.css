@@ -981,16 +981,41 @@ select option {
     0 0 0 1px rgba(255,255,255,.18),
     0 12px 32px rgba(0,0,0,.58),
     0 0 24px color-mix(in srgb, var(--theme) 20%, transparent);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .world-photo img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
   border-radius: 4px;
   pointer-events: none;
+}
+
+/* Chữ phụ chạy liên tục từ dưới lên trên. Animation chỉ thay đổi top,
+   nên transform 3D của từng chữ vẫn được giữ nguyên khi cả không gian xoay. */
+.world-text-rising {
+  animation: worldTextRise var(--rise-duration, 14s) linear infinite;
+  will-change: top, opacity;
+}
+
+@keyframes worldTextRise {
+  0% {
+    top: var(--rise-start, 520px);
+    opacity: 0;
+  }
+  8% {
+    opacity: .95;
+  }
+  88% {
+    opacity: .9;
+  }
+  100% {
+    top: var(--rise-end, -560px);
+    opacity: 0;
+  }
 }
 
 .world-emoji {
